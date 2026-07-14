@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(~/Desktop/Projects/automatedDetectionTest/**)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(pytest*)",
+      "Bash(pip install*)"
+    ],
+    "deny": [
+      "Read(~/C:/Users/vikto/Desktop/**)",
+      "Read(~/C:/Users/vikto/Documents/**)",
+      "Read(~/C:/Users/vikto/Downloads/**)",
+      "Read(D:/**)",
+      "Read(**/.env)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)"
+    ]
+  }
+}
