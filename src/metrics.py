@@ -1,4 +1,6 @@
 """Detection metrics: IoU matching, precision/recall/F1 (scikit-learn), mAP@0.5 (torchmetrics)."""
+import json
+from pathlib import Path
 from typing import NamedTuple
 
 import torch
@@ -7,10 +9,24 @@ from torchmetrics.detection import MeanAveragePrecision
 
 from src.model import Detection
 
+LABELS_DIR = Path(__file__).resolve().parent.parent / "data" / "labels"
+
 
 class GroundTruth(NamedTuple):
     box: tuple[float, float, float, float]  # x1, y1, x2, y2 in pixel coords
     class_name: str
+
+
+def load_ground_truth(image_path: Path) -> list[GroundTruth]:
+    """Reads the JSON ground-truth label file (written by src/data_loader.py) for an image.
+    Shared by tests/conftest.py and app.py - lives here (not src/data_loader.py) so importing it
+    doesn't pull in fiftyone's heavy top-level imports."""
+    label_path = LABELS_DIR / f"{image_path.stem}.json"
+    data = json.loads(label_path.read_text())
+    return [
+        GroundTruth(box=tuple(box), class_name=class_name)
+        for box, class_name in zip(data["boxes"], data["classes"])
+    ]
 
 
 def compute_iou(box_a: tuple[float, float, float, float], box_b: tuple[float, float, float, float]) -> float:
@@ -79,6 +95,25 @@ def match_detections(
             gt_matched[gi] = True
 
     return gt_matched, det_matched
+
+
+def is_robust_detection(
+    detections: list[Detection],
+    ground_truths: list[GroundTruth],
+    confidence_floor: float,
+    min_iou: float,
+) -> bool:
+    """True if at least one detection meets confidence_floor AND has IoU >= min_iou against its
+    nearest ground-truth box - i.e. it's plausibly the real object, not a confident hallucination
+    on an unrelated region. Used by tests/test_robustness.py and app.py so both agree on what
+    counts as a genuine (not just confident) detection under degradation."""
+    for det in detections:
+        if det.confidence < confidence_floor:
+            continue
+        best_iou = max((compute_iou(det.box, gt.box) for gt in ground_truths), default=0.0)
+        if best_iou >= min_iou:
+            return True
+    return False
 
 
 def precision_recall_f1(
